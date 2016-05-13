@@ -1,0 +1,221 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>1</title>
+<style>
+*{ margin:0; padding:0; list-style:none; font-family: "微软雅黑","张海山锐线体简"}
+#ul1{ margin: 0 auto;width:900px;margin-top:50px;}
+#ul1 li{width:128px;height:128px; float: left; border:#000 10px solid;margin:30px; /*position:absolute;*/ background:#fff;}
+</style>
+<script>
+	window.onload=function(){
+		function move(obj,json,opational){
+	
+	opational=opational||{};
+	opational.time=opational.time||300;
+	opational.fn=opational.fn||null;
+	opational.type=opational.type||'ease-out';
+	
+	var start={};
+	var dis={};
+	for(var key in json){
+		start[key]=parseFloat(getStyle(obj,key));
+		dis[key]=json[key]-start[key];
+	}
+	
+	var count=Math.round(opational.time/30);
+	var n=0;
+	
+	clearInterval(obj.timer);
+	obj.timer=setInterval(function(){
+		
+		n++;
+		
+		for(var key in json){
+			
+			//var cur=start[key]+n*dis[key]/count;
+			switch(opational.type){
+				case 'linear':
+					var a=n/count;
+					var cur=start[key]+dis[key]*a;
+					break;	
+				case 'ease-in':
+					var a=n/count;
+					var cur=start[key]+dis[key]*a*a*a;
+					break;	
+				case 'ease-out':
+					var a=1-n/count;
+					var cur=start[key]+dis[key]*(1-a*a*a);
+					break;	
+			}
+		
+		
+			if(key=='opacity'){
+				obj.style.opacity=cur;
+				obj.style.filter='alpha(opacity='+cur*100+')';
+			}else{
+				obj.style[key]=cur+'px';
+			}
+		}
+		
+		console.log('跑');
+		
+		if(n==count){
+			clearInterval(obj.timer);
+			opational.fn && opational.fn();
+		}
+		
+	},30);	
+}
+
+function getStyle(obj,attr){
+	return obj.currentStyle?obj.currentStyle[attr]:getComputedStyle(obj,false)[attr];	
+}
+	}
+</script>
+<script>
+window.onload=function(){
+	var aLi=document.getElementById('ul1').children;
+	var zIndex=1;
+	//0.布局转换
+	var aPos=[];
+	for(var i=0;i<aLi.length;i++){
+		aPos.push({left:aLi[i].offsetLeft,top:aLi[i].offsetTop});
+		aLi[i].style.left=aPos[i].left+'px';
+		aLi[i].style.top=aPos[i].top+'px';
+	}
+	for(var i=0;i<aLi.length;i++){
+		aLi[i].style.position='absolute';
+		aLi[i].style.margin=0;	
+		aLi[i].index=i;
+	}
+	
+	//1.添加拖拽
+	for(var i=0;i<aLi.length;i++){
+		drag(aLi[i]);	
+	}
+	
+	function drag(obj){
+		obj.onmousedown=function(ev){
+			obj.style.zIndex=zIndex++;
+			clearInterval(obj.timer);
+			
+			var oEvt=ev||event;
+			var disX=oEvt.clientX-obj.offsetLeft;
+			var disY=oEvt.clientY-obj.offsetTop;
+			document.onmousemove=function(ev){
+				var oEvt=ev||event;
+				obj.style.left=oEvt.clientX-disX+'px';
+				obj.style.top=oEvt.clientY-disY+'px';
+				
+				
+				//2.碰撞检测同时，在撞到的里面找最近
+				var nearObj=findNearest(obj);//找最近
+				
+				if(nearObj &&  nearObj!=obj){
+					//move(obj,aPos[nearObj.index]);
+					var n=obj.index;//拿着的
+					var m=nearObj.index;//被撞的索引
+					if(n<m){
+						for(var i=0;i<aLi.length;i++){
+							if(aLi[i].index>n && aLi[i].index<=m){
+								aLi[i].index--;
+								move(aLi[i],aPos[aLi[i].index]);	
+							}
+						}
+					}else{
+						for(var i=0;i<aLi.length;i++){
+							if(aLi[i].index>=m && aLi[i].index<n){
+								aLi[i].index++;
+								move(aLi[i],aPos[aLi[i].index]);	
+							}
+						}
+					}
+					
+					obj.index=m;
+					
+				}
+			};
+			document.onmouseup=function(){
+				document.onmousemove=document.onmouseup=null;
+				
+				//抬起回自个位置
+				
+				move(obj,aPos[obj.index]);
+				
+			};
+			return false;
+		};	
+	}
+	
+	function findNearest(obj){
+		//找最近
+		var minDis=999999999;
+		var minDisIndex=-1;
+		for(var i=0;i<aLi.length;i++){
+			//if(obj==aLi[i]) continue;
+			//找撞到的+找最近
+			if(collTest(obj,aLi[i])){
+				//找最近	
+				var dis = getDis(obj,aLi[i])//求距离
+				if(dis<minDis){
+					minDis	=	dis;
+					minDisIndex = i;
+				}
+			}
+		}
+		
+		if(minDisIndex==-1){
+			return null;	
+		}else{
+			return 	aLi[minDisIndex];
+		}
+	}
+	
+	function getDis(obj1,obj2){
+		var a=aPos[obj2.index].left-obj1.offsetLeft;
+		var b=aPos[obj2.index].top-obj1.offsetTop;
+		return Math.sqrt(a*a+b*b);	
+	}
+	
+	function collTest(obj1,obj2){
+		var l1=obj1.offsetLeft;
+		var t1=obj1.offsetTop;
+		var r1=obj1.offsetLeft+obj1.offsetWidth;
+		var b1=obj1.offsetTop+obj1.offsetHeight;
+			
+		var l2=aPos[obj2.index].left;//obj2==房子
+		var t2=aPos[obj2.index].top;
+		var r2=aPos[obj2.index].left+obj2.offsetWidth;
+		var b2=aPos[obj2.index].top+obj2.offsetHeight;	
+		
+		if(l1>r2||t1>b2||r1<l2||b1<t2){
+			return false;	
+		}else{
+			return true;	
+		}
+	}
+	
+};
+
+
+</script>
+</head>
+
+<body>
+
+<ul id="ul1">
+	<li><img src="img4/1.png"></li>
+	<li><img src="img4/2.png"></li>
+	<li><img src="img4/3.png"></li>
+	<li><img src="img4/4.png"></li>
+	<li><img src="img4/5.png"></li>
+	<li><img src="img4/6.png"></li>
+	<li><img src="img4/7.png"></li>
+	<li><img src="img4/8.png"></li>
+	<li><img src="img4/9.png"></li>
+</ul>
+
+</body>
+</html>
